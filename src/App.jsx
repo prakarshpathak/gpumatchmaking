@@ -74,7 +74,7 @@ const SEED_INVENTORY = [
   { id: 20, provider: "FTP", model: "B300", ff: null, gpus: 512, buy: 5.20, down: 0.25, term: "1 yr", availRaw: "~2 Weeks", lead: 2, location: "Vietnam", score: 4, notes: "Dual 6th Gen Xeon; BF3 DPU" },
   { id: 21, provider: "Sestrece", model: "B300", ff: null, gpus: 1024, buy: 3.40, down: 0.35, term: "3 yr", availRaw: "~4 Weeks", lead: 4, location: "Lisbon, EU", score: 8, notes: "VAST ENODE 2PB; XDR 800G IB" },
   { id: 22, provider: "Hosted AI", model: "H100", ff: "SXM", gpus: 2048, buy: 1.85, down: 0.20, term: "1 yr", availRaw: "15th June", lead: 26, location: "US", score: 6, notes: "HGX NVSwitch; 8x CX7 NDR 400G" },
-  { id: 23, provider: "ResetData", model: "GB300", ff: "NVL72", gpus: 1024, buy: 5.00, down: 0.30, term: "5 yr", availRaw: "date", lead: 26, location: "Australia", score: 2, notes: "142ms to US West; Grace" },
+  { id: 23, provider: "ResetData", model: "GB300", ff: "NVL72", gpus: 1024, buy: 5.00, down: 0.30, term: "5 yr", availRaw: "Late 2026", lead: 26, location: "Australia", score: 2, notes: "142ms to US West; Grace Superchip" },
   { id: 24, provider: "ResetData", model: "H200", ff: "NVL", gpus: 512, buy: 2.40, down: 0.10, term: "On Request", availRaw: "On Request", lead: 26, location: "TBD", score: 5, notes: "4,096 cores; 204.8 Tb/s" },
   { id: 25, provider: "Yotta", model: "B200", ff: "HGX", gpus: 1024, buy: 3.80, down: 0.20, term: "36 mo", availRaw: "~6 Weeks", lead: 6, location: "India", score: 5, notes: "AI Enterprise License; EPYC 9575F" },
 ];
@@ -146,13 +146,27 @@ export default function App() {
   const [showWeights, setShowWeights] = useState(false);
   const [toast, setToast] = useState(null);
 
-  // PRODUCTION: this same effect calls the Supabase loadData — nothing else changes.
+  // Loads from Supabase when env vars are configured; falls back to seed data otherwise.
   useEffect(() => {
+    const isConfigured =
+      import.meta.env.VITE_SUPABASE_URL &&
+      !import.meta.env.VITE_SUPABASE_URL.includes("YOUR-PROJECT");
     let live = true;
-    dataLayer.loadData().then(({ requirements, inventory }) => {
-      if (!live) return;
-      setRequirements(requirements); setInventory(inventory); setLoading(false);
-    });
+    if (!isConfigured) {
+      // No real DB yet — show seed data so the UI is fully functional immediately.
+      setRequirements(SEED_REQUIREMENTS); setInventory(SEED_INVENTORY); setLoading(false);
+      return;
+    }
+    dataLayer.loadData()
+      .then(({ requirements, inventory }) => {
+        if (!live) return;
+        setRequirements(requirements); setInventory(inventory); setLoading(false);
+      })
+      .catch(err => {
+        console.error("[GPUMatchmaker] loadData failed:", err);
+        if (!live) return;
+        setRequirements(SEED_REQUIREMENTS); setInventory(SEED_INVENTORY); setLoading(false);
+      });
     return () => { live = false; };
   }, []);
 
